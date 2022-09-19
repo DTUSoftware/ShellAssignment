@@ -67,9 +67,21 @@ int main() {
                 command = (char *) realloc(command, sizeof(char) * strlen(command));
 
                 // load args
+                // where completely and utterly retarded at this point but if it works it works :) not overly
+                // complicated at all might fix later :) 
                 args = (char *) malloc(buffer_size - strlen(command));
+                int i = 0;
                 while (arg != NULL) {
-                    sscanf(arg, "%s", args);
+                    if (i == 0) {
+                        sscanf(arg, "%s", args);
+                    }
+                    else {
+                        // this is a very elegant solution
+                        // modern problems require modern solutions
+                        strncat(args, " ", 1);
+                        strncat(args, arg, strlen(arg));
+                    }
+                    i++;
                     arg = strtok(NULL, " ");
                 }
             }
@@ -108,13 +120,13 @@ int main() {
                     perror("fork");
                     exit(EXIT_FAILURE);
                 } else if (cpid == 0) { // child code
+                    printf("Command: %s\n", command);
+
                     // call correct binary
                     if (args != NULL) {
-                        execv(command, &args);
+                        printf("Args: %s\n", args);
                     }
-                    else {
-                        execv(command, (char *const *) " ");
-                    }
+                    execl(command, args, NULL);
                     perror("Child Error");
                     exit(EXIT_FAILURE); // not reached
                 } else { // parent code
