@@ -10,6 +10,7 @@ sandbox.c
 #---- CMake ----#
 
 cmake-build-debug
+cmake-build-debug-cygwin
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
