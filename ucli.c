@@ -41,7 +41,7 @@ int main() {
             buffer_size = ++pos;
             buffer = (char *) realloc(buffer, buffer_size);
 
-            printf("DEBUG: %s\n", buffer);
+//            printf("DEBUG: %s\n", buffer);
         } else {
             perror("memory allocation");
             exit(EXIT_FAILURE);
@@ -96,51 +96,55 @@ int main() {
             DIR *d;
             struct dirent *dir;
             d = opendir("/bin");
-            bool found_command = false;
             if (d) {
                 while ((dir = readdir(d)) != NULL) {
+                    // TODO: replace with startswith
+//                    printf("%d\n", strcmp(dir->d_name, command));
                     if (strstr(dir->d_name, command) != NULL) {
-                        found_command = true;
+                        printf("Command found in /bin!\n");
+                        char *old_command = command;
+                        command = (char *) malloc(sizeof(char*) * strlen(command) + sizeof("/bin/"));
+                        strcpy(command, "/bin/");
+                        strncat(command, old_command, strlen(old_command));
+                        free(old_command);
                         break;
                     }
 //                    printf("[DEBUG]: %s\n", dir->d_name);
                 }
                 closedir(d);
             }
-            found_command = true;
 
-            if (found_command) {
-                // Command execution
-                // forking: https://man7.org/linux/man-pages/man2/wait.2.html
-                pid_t cpid, w;
-                int wstatus;
-                cpid = fork();
-                // command the parent should run
-                if (cpid == -1) {
-                    perror("fork");
-                    exit(EXIT_FAILURE);
-                } else if (cpid == 0) { // child code
-                    printf("Command: %s\n", command);
+            // Command execution
+            // forking: https://man7.org/linux/man-pages/man2/wait.2.html
+            pid_t cpid, w;
+            int wstatus;
+            cpid = fork();
+            // command the parent should run
+            if (cpid == -1) {
+                perror("fork");
+                exit(EXIT_FAILURE);
+            } else if (cpid == 0) { // child code
+                printf("Command: %s\n", command);
 
-                    // call correct binary
-                    if (args != NULL) {
-                        printf("Args: %s\n", args);
+                // call correct binary
+                if (args != NULL) {
+                    printf("Args: %s\n", args);
+                }
+                execl(command, command, args);
+                perror("Child Error");
+                exit(EXIT_FAILURE); // not reached
+            } else { // parent code
+                // free command and args
+                free(command);
+                free(args);
+
+                // https://man7.org/linux/man-pages/man2/wait.2.html
+                do {
+                    w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
+                    if (w == -1) {
+                        perror("waitpid");
+                        exit(EXIT_FAILURE);
                     }
-                    execl(command, args, NULL);
-                    perror("Child Error");
-                    exit(EXIT_FAILURE); // not reached
-                } else { // parent code
-                    // free command and args
-                    free(command);
-                    free(args);
-
-                    // https://man7.org/linux/man-pages/man2/wait.2.html
-                    do {
-                        w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
-                        if (w == -1) {
-                            perror("waitpid");
-                            exit(EXIT_FAILURE);
-                        }
 
 //                        if (WIFEXITED(wstatus)) {
 //                            printf("exited, status=%d\n", WEXITSTATUS(wstatus));
@@ -151,13 +155,7 @@ int main() {
 //                        } else if (WIFCONTINUED(wstatus)) {
 //                            printf("continued\n");
 //                        }
-                    } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
-                }
-            }
-            else {
-                printf("> ERROR: Command not found!\n");
-                free(command);
-                free(args);
+                } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
             }
         } else {
             free(buffer);
