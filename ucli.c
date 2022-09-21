@@ -14,7 +14,7 @@
 #include "ucli.h"
 
 int main() {
-    char cwd[PATH_MAX+1];
+    char cwd[PATH_MAX + 1];
     while (true) {
         fflush(stdout); // Flush if something is stuck :)
 
@@ -84,8 +84,7 @@ int main() {
                 while (arg != NULL) {
                     if (i == 0) {
                         sscanf(arg, "%s", args);
-                    }
-                    else {
+                    } else {
                         // this is a very elegant solution
                         // modern problems require modern solutions
                         strcat(args, " ");
@@ -94,8 +93,7 @@ int main() {
                     i++;
                     arg = strtok(NULL, " ");
                 }
-            }
-            else {
+            } else {
                 sscanf(buffer, "%s", command);
             }
             // We no longer need to keep the buffer in memory :)
@@ -109,8 +107,7 @@ int main() {
                 // free command and args
                 free(command);
                 free(args);
-            }
-            else {
+            } else {
                 // read list of binaries to find command
                 // https://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
                 DIR *d;
@@ -123,7 +120,7 @@ int main() {
                         if (strstr(dir->d_name, command) != NULL) {
                             printf("[DEBUG]: Command found in /bin!\n");
                             char *old_command = command;
-                            command = (char *) malloc(sizeof(char*) * strlen(command) + sizeof("/bin/"));
+                            command = (char *) malloc(sizeof(char *) * strlen(command) + sizeof("/bin/"));
                             strcpy(command, "/bin/");
                             strncat(command, old_command, strlen(old_command));
                             free(old_command);
