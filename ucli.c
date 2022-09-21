@@ -53,9 +53,18 @@ int readinput(char *buffer) {
     return 1;
 }
 
-int parseinput(char *buffer, char *command, char *args) {
-    // if arguments are parsed
-    if (strstr(buffer, " ") != NULL) {
+int parseinput(char *buffer, char **command) {
+    // if no arguments are passed
+    if (strstr(buffer, " ") == NULL) {
+        command[0] = malloc(strlen(buffer) * sizeof(char));
+        if (command[0] == NULL) {
+            perror("out of memory");
+            exit(EXIT_FAILURE);
+        }
+        strcpy(command[0], buffer);
+    }
+        // if arguments are passed
+    else {
         char *arg = strtok(buffer, " ");
         if (arg == NULL) {
 //            perror("failed to parse");
@@ -63,51 +72,31 @@ int parseinput(char *buffer, char *command, char *args) {
             return -1;
         }
 
-        // load command
-        sscanf(arg, "%s", command);
-        arg = strtok(NULL, " ");
-        command = (char *) realloc(command, sizeof(char) * strlen(command));
-        if (command == NULL) {
-            perror("out of memory");
-            exit(EXIT_FAILURE);
-        }
-
-        // load args
-        // where completely and utterly retarded at this point but if it works it works :) not overly
-        // complicated at all might fix later :)
-        args = (char *) realloc(args, sizeof(char) * (strlen(buffer) - strlen(command)));
-        if (args == NULL) {
-            perror("out of memory");
-            exit(EXIT_FAILURE);
-        }
         int i = 0;
         while (arg != NULL) {
-            if (i == 0) {
-                sscanf(arg, "%s", args);
-            } else {
-                // this is a very elegant solution
-                // modern problems require modern solutions
-                strcat(args, " ");
-                strcat(args, arg);
+            if (i != 0) {
+                command = realloc(command, (i + 2) * sizeof(char *));
+                command[i + 1] = NULL;
             }
-            i++;
+            command[i] = malloc(strlen(arg) * sizeof(char));
+            strcpy(command[i], arg);
             arg = strtok(NULL, " ");
+            i++;
         }
-    } else {
-        sscanf(buffer, "%s", command);
     }
     return 1;
 }
 
-int executecommand(char *command, char *args) {
+int executecommand(char **command) {
     // if we want to change working directory
-    if (strcmp("cd", command) == 0) {
-        if (chdir(args) != 0) {
-            printf("Error changing working directory using %s\n", args);
+    if (strcmp("cd", command[0]) == 0) {
+        // TODO: path support path with spaces (only arg1 is passed rn)
+        if (chdir(command[1]) != 0) {
+            printf("Error changing working directory using %s\n", command[1]);
         }
     }
         // if we want to exit the shell
-    else if (strcmp("exit", command) == 0) {
+    else if (strcmp("exit", command[0]) == 0) {
         return 2;
     } else {
         // forking: https://man7.org/linux/man-pages/man2/wait.2.html
@@ -119,15 +108,10 @@ int executecommand(char *command, char *args) {
             perror("fork");
             exit(EXIT_FAILURE);
         } else if (cpid == 0) { // child code
-            printf("[DEBUG]: Command: %s\n", command);
+            printf("[DEBUG]: Command: %s\n", command[0]);
 
             // call correct binary
-            if (args != NULL && args[0] != '\0') {
-                printf("[DEBUG]: Args: %s\n", args);
-                execl(command, command, args);
-            } else {
-                execl(command, command, NULL);
-            }
+            execvp(command[0], command);
             perror("Child Error");
             exit(EXIT_FAILURE); // not reached
         } else { // parent code
@@ -228,27 +212,21 @@ int main() {
         // Check that input exists and is above 1 (end of string char takes up 1 char)
         if (strlen(buffer) > 1) {
             // String for keeping the command for the child to execute
-            char *command = calloc(strlen(buffer), sizeof(char));
+            // TODO: free me :)
+            char **command = malloc(2 * sizeof(char *));
             if (command == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
+            command[0] = NULL;
+            command[1] = NULL;
 
-            // String for keeping other arguments
-            char *args = calloc(1, sizeof(char));
-            if (args == NULL) {
-                perror("out of memory");
-                exit(EXIT_FAILURE);
-            }
-
-            if (!parseinput(buffer, command, args)) {
+            if (!parseinput(buffer, command)) {
                 // if parsing fails, try again
                 free(buffer);
                 buffer = NULL;
                 free(command);
                 command = NULL;
-                free(args);
-                args = NULL;
                 continue;
             }
 
@@ -257,12 +235,12 @@ int main() {
             buffer = NULL;
 
             // Check if command is in /bin, and change path
-            if (bincommand(command)) {
+            if (bincommand(command[0])) {
                 printf("[DEBUG]: Command found in /bin!\n");
             }
 
             // Command execution
-            status = executecommand(command, args);
+            status = executecommand(command);
             // Exit command
             if (status == 2) {
                 break;
@@ -271,8 +249,6 @@ int main() {
             // free command and args
             free(command);
             command = NULL;
-            free(args);
-            args = NULL;
         } else {
             free(buffer);
             buffer = NULL;
