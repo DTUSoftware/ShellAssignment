@@ -2,9 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int
-main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     printf("hello world (pid:%d)\n", (int) getpid());
     int rc = fork();
     if (rc < 0) {
@@ -17,7 +15,7 @@ main(int argc, char *argv[])
     } else {
         // parent goes down this path (original process)
         printf("hello, I am parent of %d (pid:%d)\n",
-	       rc, (int) getpid());
+               rc, (int) getpid());
     }
     return 0;
 }

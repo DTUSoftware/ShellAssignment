@@ -14,13 +14,13 @@ int main(int argc, char *argv[]) {
     } else if (rc == 0) {
         // child (new process)
         printf("hello, I am child (pid:%d)\n", (int) getpid());
-        execlp("./a.out","", NULL);  // 
+        execlp("./a.out", "", NULL);  //
         printf("this shouldn't print out");
     } else {
         // parent goes down this path (original process)
         int wc = wait(NULL);
         printf("hello, I am parent of %d (wc:%d) (pid:%d)\n",
-	       rc, wc, (int) getpid());
+               rc, wc, (int) getpid());
     }
     return 0;
 }
