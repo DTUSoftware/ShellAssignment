@@ -76,9 +76,17 @@ int parseinput(char *buffer, char **command) {
         while (arg != NULL) {
             if (i != 0) {
                 command = realloc(command, (i + 2) * sizeof(char *));
+                if (command == NULL) {
+                    perror("out of memory");
+                    exit(EXIT_FAILURE);
+                }
                 command[i + 1] = NULL;
             }
             command[i] = malloc(strlen(arg) * sizeof(char));
+            if (command[i] == NULL) {
+                perror("out of memory");
+                exit(EXIT_FAILURE);
+            }
             strcpy(command[i], arg);
             arg = strtok(NULL, " ");
             i++;
@@ -99,22 +107,37 @@ int executecommand(char **command) {
     else if (strcmp("exit", command[0]) == 0) {
         return 2;
     } else {
+        // piping <insert manpage>
+        int pipefd[2];
+        char recv[32];
+        if (pipe(pipefd) == -1) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+
         // forking: https://man7.org/linux/man-pages/man2/wait.2.html
         pid_t cpid, w;
         int wstatus;
+
         cpid = fork();
-        // command the parent should run
         if (cpid == -1) {
             perror("fork");
             exit(EXIT_FAILURE);
-        } else if (cpid == 0) { // child code
+        } // child code
+        else if (cpid == 0) {
+            close(pipefd[0]); // close reading pipe
             printf("[DEBUG]: Command: %s\n", command[0]);
+
+            FILE *out = fdopen(pipefd[1], "w"); // open pipe for writing
+            fprintf(out, "cpid: %d\n", (int) getpid());
 
             // call correct binary
             execvp(command[0], command);
             perror("Child Error");
             exit(EXIT_FAILURE); // not reached
-        } else { // parent code
+        } // parent code
+        else {
+            close(pipefd[1]); // close writing pipe
             // https://man7.org/linux/man-pages/man2/wait.2.html
             do {
                 w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
@@ -123,15 +146,19 @@ int executecommand(char **command) {
                     exit(EXIT_FAILURE);
                 }
 
-//                        if (WIFEXITED(wstatus)) {
-//                            printf("exited, status=%d\n", WEXITSTATUS(wstatus));
-//                        } else if (WIFSIGNALED(wstatus)) {
-//                            printf("killed by signal %d\n", WTERMSIG(wstatus));
-//                        } else if (WIFSTOPPED(wstatus)) {
-//                            printf("stopped by signal %d\n", WSTOPSIG(wstatus));
-//                        } else if (WIFCONTINUED(wstatus)) {
-//                            printf("continued\n");
-//                        }
+                FILE *in = fdopen(pipefd[0], "r"); // open pipe for reading
+                fscanf(in, "%s", recv); // write to stream
+                printf("pid:%d received %s\n", (int) getpid(), recv);
+
+//                if (WIFEXITED(wstatus)) {
+//                    printf("exited, status=%d\n", WEXITSTATUS(wstatus));
+//                } else if (WIFSIGNALED(wstatus)) {
+//                    printf("killed by signal %d\n", WTERMSIG(wstatus));
+//                } else if (WIFSTOPPED(wstatus)) {
+//                    printf("stopped by signal %d\n", WSTOPSIG(wstatus));
+//                } else if (WIFCONTINUED(wstatus)) {
+//                    printf("continued\n");
+//                }
             } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
         }
     }
