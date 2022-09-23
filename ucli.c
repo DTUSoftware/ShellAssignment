@@ -53,15 +53,16 @@ int readinput(char *buffer) {
     return 1;
 }
 
-int parseinput(char *buffer, char **command) {
+int parseinput(char *buffer, char ***command) {
+    char **commands = *command;
     // if no arguments are passed
     if (strstr(buffer, " ") == NULL) {
-        command[0] = malloc(strlen(buffer) * sizeof(char));
-        if (command[0] == NULL) {
+        commands[0] = malloc(strlen(buffer) * sizeof(char));
+        if (commands[0] == NULL) {
             perror("out of memory");
             exit(EXIT_FAILURE);
         }
-        strcpy(command[0], buffer);
+        strcpy(commands[0], buffer);
     }
         // if arguments are passed
     else {
@@ -75,22 +76,32 @@ int parseinput(char *buffer, char **command) {
         int i = 0;
         while (arg != NULL) {
             if (i != 0) {
-                command = realloc(command, (i + 2) * sizeof(char *));
-                if (command == NULL) {
+                commands = realloc(commands, (i + 2) * sizeof(char *));
+                if (commands == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
                 }
-                command[i + 1] = NULL;
+                commands[i + 1] = NULL;
             }
-            command[i] = malloc(strlen(arg) * sizeof(char));
-            if (command[i] == NULL) {
+            commands[i] = malloc(strlen(arg) * sizeof(char));
+            if (commands[i] == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
-            strcpy(command[i], arg);
+            strcpy(commands[i], arg);
             arg = strtok(NULL, " ");
             i++;
         }
+    }
+    command[0] = commands;
+
+    // debug printing
+    printf("Parsed command: \n");
+    int i = 0;
+    char *cur_command = commands[i];
+    while (cur_command != NULL) {
+        printf("%s\n", cur_command);
+        cur_command = commands[++i];
     }
     return 1;
 }
@@ -240,6 +251,11 @@ int main() {
         if (strlen(buffer) > 1) {
             // String for keeping the command for the child to execute
             // TODO: free me :)
+            char ***commands = malloc(sizeof(char**));
+            if (commands == NULL) {
+                perror("out of memory");
+                exit(EXIT_FAILURE);
+            }
             char **command = malloc(2 * sizeof(char *));
             if (command == NULL) {
                 perror("out of memory");
@@ -247,8 +263,9 @@ int main() {
             }
             command[0] = NULL;
             command[1] = NULL;
+            commands[0] = command;
 
-            if (!parseinput(buffer, command)) {
+            if (!parseinput(buffer, commands)) {
                 // if parsing fails, try again
                 free(buffer);
                 buffer = NULL;
@@ -256,6 +273,7 @@ int main() {
                 command = NULL;
                 continue;
             }
+            command = *commands;
 
             // We no longer need to keep the buffer in memory :)
             free(buffer);
@@ -274,6 +292,13 @@ int main() {
             }
 
             // free command and args
+            int i = 0;
+            char *cur_command = command[i];
+            while (cur_command != NULL) {
+                free(cur_command);
+                command[i] = NULL;
+                cur_command = command[++i];
+            }
             free(command);
             command = NULL;
         } else {
