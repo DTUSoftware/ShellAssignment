@@ -150,7 +150,7 @@ int executecommand(char **command) {
     } else {
         // piping <insert manpage>
         int pipefd[2];
-        char recv[32];
+        char recv[4096];
         if (pipe(pipefd) == -1) {
             perror("pipe");
             exit(EXIT_FAILURE);
@@ -166,11 +166,11 @@ int executecommand(char **command) {
             exit(EXIT_FAILURE);
         } // child code
         else if (cpid == 0) {
+            // TODO: add error output too? STDERR_FILENO
+            // set stdout to pipe output (credit to https://stackoverflow.com/a/7292659)
+            dup2(pipefd[1], STDOUT_FILENO);
             close(pipefd[0]); // close reading pipe
-            printf("[DEBUG]: Command: %s\n", command[0]);
-
-            FILE *out = fdopen(pipefd[1], "w"); // open pipe for writing
-            fprintf(out, "cpid: %d\n", (int) getpid());
+            close(pipefd[0]); // close writing pipe
 
             // call correct binary
             execvp(command[0], command);
@@ -187,9 +187,8 @@ int executecommand(char **command) {
                     exit(EXIT_FAILURE);
                 }
 
-                FILE *in = fdopen(pipefd[0], "r"); // open pipe for reading
-                fscanf(in, "%s", recv); // write to stream
-                printf("pid:%d received %s\n", (int) getpid(), recv);
+                int nbytes = read(pipefd[0], recv, sizeof(recv));
+                printf("%.*s\n", nbytes, recv);
 
 //                if (WIFEXITED(wstatus)) {
 //                    printf("exited, status=%d\n", WEXITSTATUS(wstatus));
