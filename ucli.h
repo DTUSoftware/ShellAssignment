@@ -6,10 +6,11 @@
 #define SHELL_UCLI_H
 
 #define BUFFERSIZE 128
+#define DEBUG 1
 
 int getdir(char *cwd);
 int readinput(char *buffer);
-int parseinput(char *buffer, char **command);
+int parseinput(char *buffer, char ***command);
 int executecommand(char **command);
 int bincommand(char *command);
 

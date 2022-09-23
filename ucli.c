@@ -53,15 +53,16 @@ int readinput(char *buffer) {
     return 1;
 }
 
-int parseinput(char *buffer, char **command) {
+int parseinput(char *buffer, char ***command) {
+    char **commands = *command;
     // if no arguments are passed
     if (strstr(buffer, " ") == NULL) {
-        command[0] = malloc(strlen(buffer) * sizeof(char));
-        if (command[0] == NULL) {
+        commands[0] = malloc(strlen(buffer) * sizeof(char));
+        if (commands[0] == NULL) {
             perror("out of memory");
             exit(EXIT_FAILURE);
         }
-        strcpy(command[0], buffer);
+        strcpy(commands[0], buffer);
     }
         // if arguments are passed
     else {
@@ -75,23 +76,68 @@ int parseinput(char *buffer, char **command) {
         int i = 0;
         while (arg != NULL) {
             if (i != 0) {
-                command = realloc(command, (i + 2) * sizeof(char *));
-                if (command == NULL) {
+                commands = realloc(commands, (i + 2) * sizeof(char *));
+                if (commands == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
                 }
-                command[i + 1] = NULL;
+                commands[i + 1] = NULL;
             }
-            command[i] = malloc(strlen(arg) * sizeof(char));
-            if (command[i] == NULL) {
+
+            commands[i] = malloc(strlen(arg) * sizeof(char));
+            if (commands[i] == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
-            strcpy(command[i], arg);
-            arg = strtok(NULL, " ");
+            strcpy(commands[i], arg);
+
+            // if arg is string
+            if (arg[0] == '"' || arg[0] == '\'') {
+                arg = strtok(NULL, " ");
+                while (arg != NULL && strstr("\"", arg) == NULL) {
+                    commands[i] = realloc(commands[i], (strlen(arg)+strlen(commands[i])) * sizeof(char));
+                    if (commands[i] == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcat(commands[i], " ");
+                    strcat(commands[i], arg);
+                    arg = strtok(NULL, " ");
+                }
+
+                if (arg != NULL) {
+                    commands[i] = realloc(commands[i], (strlen(arg)+strlen(commands[i])) * sizeof(char));
+                    if (commands[i] == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcat(commands[i], " ");
+                    strcat(commands[i], arg);
+                    arg = strtok(NULL, " ");
+                }
+            }
+
+            if (arg != NULL) {
+                arg = strtok(NULL, " ");
+            }
             i++;
         }
     }
+    command[0] = commands;
+
+    // debug printing
+    if (DEBUG) {
+        printf("======[ DEBUG ]======\n"
+               "Parsed command: \n");
+        int i = 0;
+        char *cur_command = commands[i];
+        while (cur_command != NULL) {
+            printf("%s\n", cur_command);
+            cur_command = commands[++i];
+        }
+        printf("=====================\n");
+    }
+
     return 1;
 }
 
@@ -109,7 +155,7 @@ int executecommand(char **command) {
     } else {
         // piping <insert manpage>
         int pipefd[2];
-        char recv[32];
+        char recv[4096];
         if (pipe(pipefd) == -1) {
             perror("pipe");
             exit(EXIT_FAILURE);
@@ -125,11 +171,11 @@ int executecommand(char **command) {
             exit(EXIT_FAILURE);
         } // child code
         else if (cpid == 0) {
+            // set stdout to pipe output (credit to https://stackoverflow.com/a/7292659)
+            dup2(pipefd[1], STDOUT_FILENO);
+            dup2(pipefd[1], STDERR_FILENO);
             close(pipefd[0]); // close reading pipe
-            printf("[DEBUG]: Command: %s\n", command[0]);
-
-            FILE *out = fdopen(pipefd[1], "w"); // open pipe for writing
-            fprintf(out, "cpid: %d\n", (int) getpid());
+            close(pipefd[0]); // close writing pipe
 
             // call correct binary
             execvp(command[0], command);
@@ -146,9 +192,8 @@ int executecommand(char **command) {
                     exit(EXIT_FAILURE);
                 }
 
-                FILE *in = fdopen(pipefd[0], "r"); // open pipe for reading
-                fscanf(in, "%s", recv); // write to stream
-                printf("pid:%d received %s\n", (int) getpid(), recv);
+                int nbytes = read(pipefd[0], recv, sizeof(recv));
+                printf("%.*s\n", nbytes, recv);
 
 //                if (WIFEXITED(wstatus)) {
 //                    printf("exited, status=%d\n", WEXITSTATUS(wstatus));
@@ -240,15 +285,21 @@ int main() {
         if (strlen(buffer) > 1) {
             // String for keeping the command for the child to execute
             // TODO: free me :)
-            char **command = malloc(2 * sizeof(char *));
+            char ***commands = malloc(sizeof(char*));
+            if (commands == NULL) {
+                perror("out of memory");
+                exit(EXIT_FAILURE);
+            }
+            char **command = malloc(2 * sizeof(char*));
             if (command == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
             command[0] = NULL;
             command[1] = NULL;
+            commands[0] = command;
 
-            if (!parseinput(buffer, command)) {
+            if (!parseinput(buffer, commands)) {
                 // if parsing fails, try again
                 free(buffer);
                 buffer = NULL;
@@ -256,6 +307,7 @@ int main() {
                 command = NULL;
                 continue;
             }
+            command = *commands;
 
             // We no longer need to keep the buffer in memory :)
             free(buffer);
@@ -263,7 +315,9 @@ int main() {
 
             // Check if command is in /bin, and change path
             if (bincommand(command[0])) {
-                printf("[DEBUG]: Command found in /bin!\n");
+                if (DEBUG) {
+                    printf("[DEBUG]: Command found in /bin!\n");
+                }
             }
 
             // Command execution
@@ -274,8 +328,17 @@ int main() {
             }
 
             // free command and args
+            int i = 0;
+            char *cur_command = command[i];
+            while (cur_command != NULL) {
+                free(cur_command);
+                command[i] = NULL;
+                cur_command = command[++i];
+            }
             free(command);
             command = NULL;
+            free(commands);
+            commands = NULL;
         } else {
             free(buffer);
             buffer = NULL;
