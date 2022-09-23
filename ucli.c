@@ -83,13 +83,43 @@ int parseinput(char *buffer, char ***command) {
                 }
                 commands[i + 1] = NULL;
             }
+
             commands[i] = malloc(strlen(arg) * sizeof(char));
             if (commands[i] == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
             strcpy(commands[i], arg);
-            arg = strtok(NULL, " ");
+
+            // if arg is string
+            if (arg[0] == '"' || arg[0] == '\'') {
+                arg = strtok(NULL, " ");
+                while (arg != NULL && strstr("\"", arg) == NULL) {
+                    commands[i] = realloc(commands[i], (strlen(arg)+strlen(commands[i])) * sizeof(char));
+                    if (commands[i] == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcat(commands[i], " ");
+                    strcat(commands[i], arg);
+                    arg = strtok(NULL, " ");
+                }
+
+                if (arg != NULL) {
+                    commands[i] = realloc(commands[i], (strlen(arg)+strlen(commands[i])) * sizeof(char));
+                    if (commands[i] == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcat(commands[i], " ");
+                    strcat(commands[i], arg);
+                    arg = strtok(NULL, " ");
+                }
+            }
+
+            if (arg != NULL) {
+                arg = strtok(NULL, " ");
+            }
             i++;
         }
     }
@@ -251,12 +281,12 @@ int main() {
         if (strlen(buffer) > 1) {
             // String for keeping the command for the child to execute
             // TODO: free me :)
-            char ***commands = malloc(sizeof(char**));
+            char ***commands = malloc(sizeof(char*));
             if (commands == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
-            char **command = malloc(2 * sizeof(char *));
+            char **command = malloc(2 * sizeof(char*));
             if (command == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
@@ -301,6 +331,8 @@ int main() {
             }
             free(command);
             command = NULL;
+            free(commands);
+            commands = NULL;
         } else {
             free(buffer);
             buffer = NULL;
