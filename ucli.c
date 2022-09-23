@@ -126,13 +126,18 @@ int parseinput(char *buffer, char ***command) {
     command[0] = commands;
 
     // debug printing
-    printf("Parsed command: \n");
-    int i = 0;
-    char *cur_command = commands[i];
-    while (cur_command != NULL) {
-        printf("%s\n", cur_command);
-        cur_command = commands[++i];
+    if (DEBUG) {
+        printf("======[ DEBUG ]======\n"
+               "Parsed command: \n");
+        int i = 0;
+        char *cur_command = commands[i];
+        while (cur_command != NULL) {
+            printf("%s\n", cur_command);
+            cur_command = commands[++i];
+        }
+        printf("=====================\n");
     }
+
     return 1;
 }
 
@@ -166,9 +171,9 @@ int executecommand(char **command) {
             exit(EXIT_FAILURE);
         } // child code
         else if (cpid == 0) {
-            // TODO: add error output too? STDERR_FILENO
             // set stdout to pipe output (credit to https://stackoverflow.com/a/7292659)
             dup2(pipefd[1], STDOUT_FILENO);
+            dup2(pipefd[1], STDERR_FILENO);
             close(pipefd[0]); // close reading pipe
             close(pipefd[0]); // close writing pipe
 
@@ -310,7 +315,9 @@ int main() {
 
             // Check if command is in /bin, and change path
             if (bincommand(command[0])) {
-                printf("[DEBUG]: Command found in /bin!\n");
+                if (DEBUG) {
+                    printf("[DEBUG]: Command found in /bin!\n");
+                }
             }
 
             // Command execution
