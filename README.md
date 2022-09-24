@@ -18,7 +18,6 @@ after compiling type the following to run the compiled program
 
 or find the program called ucli and run it.
 
-## Features
 
 The shell should be able to make system calls, which is basically the way a program ask the kernel to do a task. A task could be hardware related, like choosing a directory on the harddrive with `cd` or list files in a directory with `ls`. It can also be used for starting and running a new proccess.
 
@@ -28,4 +27,4 @@ The program environment
 
 Linux ???
 
-Background program execution
+A background process is a process that runs in the background, without the user handling it, it could for example be system monitoring. 
