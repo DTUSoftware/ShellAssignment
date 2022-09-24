@@ -9,9 +9,10 @@
 #define DEBUG 1
 
 int getdir(char *cwd);
-int readinput(char *buffer);
+int readinput(char **bufferptr, int newlinestop);
 int parseinput(char *buffer, char ****commandsptr);
-int executecommand(char **command);
-int bincommand(char *command);
+int executecommands(char ***commands, int i);
+int executechild(char **command, int pipefd[2]);
+int bincommand(char **command);
 
 #endif //SHELL_UCLI_H
