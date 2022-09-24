@@ -43,7 +43,7 @@ int readinput(char **bufferptr, int newlinestop) {
         }
     }
     buffer_size = ++pos;
-    buffer = realloc(buffer, buffer_size+1 * sizeof(char));
+    buffer = realloc(buffer, buffer_size + 1 * sizeof(char));
     if (buffer == NULL) {
         perror("memory allocation");
         exit(EXIT_FAILURE);
@@ -59,7 +59,7 @@ int parseinput(char *buffer, char ****commandsptr) {
     char ***commands = *commandsptr;
 
     // initialize with first command
-    char **command = malloc(2 * sizeof(char*));
+    char **command = malloc(2 * sizeof(char *));
     if (command == NULL) {
         perror("out of memory");
         exit(EXIT_FAILURE);
@@ -72,7 +72,7 @@ int parseinput(char *buffer, char ****commandsptr) {
     int j = 0;
     // if no arguments are passed
     if (strstr(buffer, " ") == NULL) {
-        command[i] = malloc((strlen(buffer)+1) * sizeof(char));
+        command[i] = malloc((strlen(buffer) + 1) * sizeof(char));
         if (command[i] == NULL) {
             perror("out of memory");
             exit(EXIT_FAILURE);
@@ -94,23 +94,22 @@ int parseinput(char *buffer, char ****commandsptr) {
                 i = -1;
                 j++;
                 // expand commands array
-                commands = realloc(commands, j+2 * sizeof(char*)); // array of commands, ptr's to command
+                commands = realloc(commands, j + 2 * sizeof(char *)); // array of commands, ptr's to command
                 if (commands == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
                 }
-                commands[j+1] = NULL;
+                commands[j + 1] = NULL;
 
                 // allocate for new command (old command is kept in commands arr)
-                command = malloc(2 * sizeof(char*));
+                command = malloc(2 * sizeof(char *));
                 if (command == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
                 }
                 command[0] = NULL;
                 command[1] = NULL;
-            }
-            else {
+            } else {
                 if (i != 0) {
                     command = realloc(command, (i + 2) * sizeof(char *));
                     if (command == NULL) {
@@ -132,7 +131,7 @@ int parseinput(char *buffer, char ****commandsptr) {
 
                     arg = strtok(NULL, " ");
                     while (arg != NULL && strstr("\"", arg) == NULL) {
-                        command[i] = realloc(command[i], (strlen(arg)+strlen(command[i])) * sizeof(char));
+                        command[i] = realloc(command[i], (strlen(arg) + strlen(command[i])) * sizeof(char));
                         if (command[i] == NULL) {
                             perror("out of memory");
                             exit(EXIT_FAILURE);
@@ -143,7 +142,7 @@ int parseinput(char *buffer, char ****commandsptr) {
                     }
 
                     if (arg != NULL) {
-                        command[i] = realloc(command[i], (strlen(arg)+strlen(command[i])) * sizeof(char));
+                        command[i] = realloc(command[i], (strlen(arg) + strlen(command[i])) * sizeof(char));
                         if (command[i] == NULL) {
                             perror("out of memory");
                             exit(EXIT_FAILURE);
@@ -152,10 +151,9 @@ int parseinput(char *buffer, char ****commandsptr) {
                         strcat(command[i], arg);
                         arg = strtok(NULL, " ");
                     }
-                }
-                else {
+                } else {
                     // add arg to command
-                    command[i] = malloc((strlen(arg)+1) * sizeof(char));
+                    command[i] = malloc((strlen(arg) + 1) * sizeof(char));
                     if (command[i] == NULL) {
                         perror("out of memory");
                         exit(EXIT_FAILURE);
@@ -194,7 +192,7 @@ int parseinput(char *buffer, char ****commandsptr) {
         i = 0;
         cur_command = commands[i];
         while (cur_command != NULL) {
-            printf("#%d:\n", i+1);
+            printf("#%d:\n", i + 1);
             j = 0;
             char *cur_arg = cur_command[j];
             while (cur_arg != NULL) {
@@ -266,7 +264,7 @@ int executecommands(char ***commands, int i) {
                 dup2(pipefd[0], STDIN_FILENO);
                 close(pipefd[0]); // close input pipe
                 close(pipefd[1]); // close output pipe
-                return executecommands(commands, i+1);
+                return executecommands(commands, i + 1);
             }
         }
     } // get input from last child after waiting command
@@ -280,8 +278,7 @@ int executecommands(char ***commands, int i) {
             if (wpid == -1) {
                 perror("waitpid");
                 exit(EXIT_FAILURE);
-            }
-            else {
+            } else {
                 if (DEBUG) {
                     printf("[DEBUG]: Child returned: %d\n", wpid);
                 }
@@ -289,7 +286,7 @@ int executecommands(char ***commands, int i) {
         }
 
 //        while (!feof(stdin)) {
-        char **bufferptr = calloc(1, sizeof(char*));
+        char **bufferptr = calloc(1, sizeof(char *));
         if (bufferptr == NULL) {
             perror("out of memory");
             exit(EXIT_FAILURE);
@@ -337,7 +334,7 @@ int bincommand(char **command) {
             // TODO: replace with startswith
 //            printf("%d\n", strcmp(dir->d_name, command));
             if (strstr(dir->d_name, executable) != NULL) {
-                char *old_command = malloc(sizeof(char) * (strlen(executable)+1));
+                char *old_command = malloc(sizeof(char) * (strlen(executable) + 1));
                 if (old_command == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
@@ -366,12 +363,8 @@ int bincommand(char **command) {
 }
 
 int main() {
-    int status = 1;
-//    int _stdin = 0; // Linux had a thing where it would return 3 after dup(STDIN_FILENO), when it should be 0...
-//                    // so now we have it set to 0, which is the correct file descriptor anyway: https://en.wikipedia.org/wiki/File_descriptor
     while (true) {
         fflush(stdout); // Flush if something is stuck :)
-//        printf("stdin closed: %d\n", feof(stdin));
 
         // Variable to keep current working directory
         char *cwd = calloc(PATH_MAX + 1, sizeof(char));
@@ -387,7 +380,7 @@ int main() {
         free(cwd);
         cwd = NULL;
 
-        char **bufferptr = malloc(sizeof(char*));
+        char **bufferptr = malloc(sizeof(char *));
         if (bufferptr == NULL) {
             perror("out of memory");
             exit(EXIT_FAILURE);
@@ -400,8 +393,6 @@ int main() {
         bufferptr[0] = buffer;
 
         // Read input from console
-//        printf("%c\n", fgetc(stdin));
-//        while(fgetc(stdin) != '\n');
         if (!readinput(bufferptr, 1)) {
             // if we could not read, and not caused by memory error, try again
             free(buffer);
@@ -415,12 +406,12 @@ int main() {
         // Check that input exists and is above 1 (end of string char takes up 1 char)
         if (strlen(buffer) > 1) {
             // String for keeping the commands for the child to execute
-            char ****commandsptr = malloc(sizeof(char*)); // prt to array of commands
+            char ****commandsptr = malloc(sizeof(char *)); // prt to array of commands
             if (commandsptr == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
             }
-            char ***commands = malloc(2 * sizeof(char*)); // array of commands, ptr's to command
+            char ***commands = malloc(2 * sizeof(char *)); // array of commands, ptr's to command
             if (commands == NULL) {
                 perror("out of memory");
                 exit(EXIT_FAILURE);
@@ -459,18 +450,42 @@ int main() {
             buffer = NULL;
 
             // Command execution
-            int _stdin = dup(STDIN_FILENO); // we will replace stdin later
-            status = executecommands(commands, 0);
-            // Exit command
-            if (status == 2) {
-                break;
+            // if we want to change working directory
+            if (strcmp("cd", commands[0][0]) == 0 || strcmp("/bin/cd", commands[0][0]) == 0) {
+                // TODO: path support path with spaces (only arg1 is passed rn)
+                if (chdir(commands[0][1]) != 0) {
+                    printf("Error changing working directory using %s\n", commands[0][1]);
+                }
+            } // if we want to exit the shell
+            else if (strcmp("exit", commands[0][0]) == 0 || strcmp("/bin/exit", commands[0][0]) == 0) {
+                exit(EXIT_SUCCESS);
             }
-//            while (getchar() != EOF); // flush stdin
-            dup2(_stdin, STDIN_FILENO); // recover stdin
-//            freopen("/dev/stdin", "a", stdin);
-            close(_stdin);
+            else {
+                // Forking https://man7.org/linux/man-pages/man2/wait.2.html
+                // we fork because on Linux it didn't want to open STDIN after we changed it, so let's leave it unchanged...
+                pid_t cpid, w;
+                int wstatus;
 
-            // free command and args
+                cpid = fork();
+                if (cpid == -1) {
+                    perror("fork");
+                    exit(EXIT_FAILURE);
+                }
+                if (cpid == 0) { // child
+                    executecommands(commands, 0);
+                    exit(EXIT_SUCCESS);
+                } else { // child
+                    do {
+                        w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
+                        if (w == -1) {
+                            perror("waitpid");
+                            exit(EXIT_FAILURE);
+                        }
+                    } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
+                }
+            }
+
+            // free commands and args
             int i = 0;
             char **cur_command = commands[i];
             while (cur_command != NULL) {
