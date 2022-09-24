@@ -66,6 +66,7 @@ int parseinput(char *buffer, char ****commandsptr) {
     command[1] = NULL;
     commands[0] = command;
 
+    int j = 0;
     // if no arguments are passed
     if (strstr(buffer, " ") == NULL) {
         command[0] = malloc(strlen(buffer) * sizeof(char));
@@ -84,7 +85,6 @@ int parseinput(char *buffer, char ****commandsptr) {
         }
 
         int i = 0;
-        int j = 0;
         while (arg != NULL) {
             if (i != 0) {
                 command = realloc(command, (i + 2) * sizeof(char *));
@@ -148,7 +148,6 @@ int parseinput(char *buffer, char ****commandsptr) {
                 }
                 command[0] = NULL;
                 command[1] = NULL;
-                commands[j] = command;
             }
             else {
                 // add arg to command
@@ -166,14 +165,27 @@ int parseinput(char *buffer, char ****commandsptr) {
             i++;
         }
     }
+    commands[j] = command;
     commandsptr[0] = commands;
+
+    // Check if commands are in /bin, and change path
+    int i = 0;
+    char **cur_command = commands[i];
+    while (cur_command != NULL) {
+        if (bincommand(cur_command[0])) {
+            if (DEBUG) {
+                printf("[DEBUG]: %s found in /bin!\n", cur_command[0]);
+            }
+        }
+        cur_command = commands[++i];
+    }
 
     // debug printing
     if (DEBUG) {
         printf("======[ DEBUG ]======\n"
                "PARSED COMMANDS: \n");
-        int i = 0;
-        char **cur_command = commands[i];
+        i = 0;
+        cur_command = commands[i];
         while (cur_command != NULL) {
             printf("#%d:\n", i+1);
             int j = 0;
@@ -366,12 +378,6 @@ int bincommand(char *command) {
 }
 
 int executecommands(char ***commands) {
-//    // Check if command is in /bin, and change path
-//    if (bincommand(command[0])) {
-//        if (DEBUG) {
-//            printf("[DEBUG]: %s found in /bin!\n", command[0]);
-//        }
-//    }
 
 
     return 1;
