@@ -261,6 +261,7 @@ int executecommands(char ***commands, int i) {
                 return executechild(command, pipefd); // doesn't return
             } // parent code
             else {
+//                while (getchar() != EOF); // flush stdin
                 // credit to https://stackoverflow.com/questions/7369286/c-passing-a-pipe-thru-execve for understanding of pipes
                 dup2(pipefd[0], STDIN_FILENO);
                 close(pipefd[0]); // close input pipe
@@ -308,7 +309,7 @@ int executecommands(char ***commands, int i) {
             buffer = NULL;
             return 2;
         }
-//            while (getchar() != EOF); // flush stdin
+        while (getchar() != EOF); // flush stdin
 
         buffer = *bufferptr;
         free(bufferptr);
@@ -366,8 +367,11 @@ int bincommand(char **command) {
 
 int main() {
     int status = 1;
+//    int _stdin = 0; // Linux had a thing where it would return 3 after dup(STDIN_FILENO), when it should be 0...
+//                    // so now we have it set to 0, which is the correct file descriptor anyway: https://en.wikipedia.org/wiki/File_descriptor
     while (true) {
         fflush(stdout); // Flush if something is stuck :)
+//        printf("stdin closed: %d\n", feof(stdin));
 
         // Variable to keep current working directory
         char *cwd = calloc(PATH_MAX + 1, sizeof(char));
@@ -396,6 +400,8 @@ int main() {
         bufferptr[0] = buffer;
 
         // Read input from console
+//        printf("%c\n", fgetc(stdin));
+//        while(fgetc(stdin) != '\n');
         if (!readinput(bufferptr, 1)) {
             // if we could not read, and not caused by memory error, try again
             free(buffer);
@@ -453,13 +459,16 @@ int main() {
             buffer = NULL;
 
             // Command execution
-            int _stdin = dup(STDIN_FILENO); // we will replace stdin inside the call
+            int _stdin = dup(STDIN_FILENO); // we will replace stdin later
             status = executecommands(commands, 0);
             // Exit command
             if (status == 2) {
                 break;
             }
+//            while (getchar() != EOF); // flush stdin
             dup2(_stdin, STDIN_FILENO); // recover stdin
+//            freopen("/dev/stdin", "a", stdin);
+            close(_stdin);
 
             // free command and args
             int i = 0;
