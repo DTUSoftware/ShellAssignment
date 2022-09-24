@@ -9,6 +9,8 @@ sandbox.c
 
 #---- CMake ----#
 
+cmake-build-debug-wsl
+cmake-build-release-cygwin
 cmake-build-debug
 cmake-build-debug-cygwin
 CMakeLists.txt.user
