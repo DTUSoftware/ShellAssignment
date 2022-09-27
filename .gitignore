@@ -1,6 +1,8 @@
 # Custom
 sandbox.py
 sandbox.c
+ucli
+ucli.exe
 
 # IDE
 .vscode/
