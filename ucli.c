@@ -178,16 +178,19 @@ int parseinput(char *buffer, char ****commandsptr) {
     commandsptr[0] = commands;
 
     // Check if commands are in /bin, and change path
+    // TODO: find out why getenv("PATH") causes execvp to not be able to use path
     i = 0;
     char **cur_command = commands[i];
-    while (cur_command != NULL) {
-        if (!checkpath(cur_command)) {
-            if (DEBUG) {
-                printf("[DEBUG]: Did not find %s in PATH!\n", cur_command[0]);
-            }
-        }
-        cur_command = commands[++i];
-    }
+    // Commented out due to execvp not working when getenv() is used.
+    // Check checkpath() for code showing path tokenization and directory crawling
+//    while (cur_command != NULL) {
+//        if (!checkpath(cur_command)) {
+//            if (DEBUG) {
+//                printf("[DEBUG]: Did not find %s in PATH!\n", cur_command[0]);
+//            }
+//        }
+//        cur_command = commands[++i];
+//    }
 
     // debug printing
     if (DEBUG) {
@@ -335,17 +338,14 @@ int checkpath(char **command) {
     char *executable = command[0]; // the executable/binary is the first varible
 
     char* path = getenv("PATH"); // load path
-    bool pathfound = false;
     if (path == NULL) {
         if (DEBUG) {
-            printf("[DEBUG]: Could not read path, reading from /bin...\n");
+            printf("[DEBUG]: Could not read path...\n");
         }
+        return -1;
     }
-    else {
-        pathfound = true;
-        if (DEBUG) {
-            printf("[DEBUG]: Path: %s\n", path);
-        }
+    else if (DEBUG) {
+        printf("[DEBUG]: Path: %s\n", path);
     }
 
     // read list of binaries to find command
@@ -354,15 +354,6 @@ int checkpath(char **command) {
     struct dirent *dir;
 
     char *arg = strtok(path, ":");
-    if (arg == NULL) {
-        if (path != NULL) {
-            strcpy(arg, path);
-        }
-        else {
-            strcpy(arg, "/bin");
-        }
-    }
-
     while (arg != NULL) {
         if (DEBUG) {
             printf("[DEBUG]: Checking %s\n", arg);
@@ -377,29 +368,26 @@ int checkpath(char **command) {
                         printf("[DEBUG]: %s found in %s!\n", executable, arg);
                     }
 
-                    // Do not change path to be absolute.
-                    // Not needed with execvp(), since it gets the path anyway - and it breaks cygwin
-                    // But the following comments can easily be removed to allow for the absolute path.
+                    // Not needed with execvp(), since it gets the path anyway
+                    char *old_command = malloc(sizeof(char) * (strlen(executable) + 1));
+                    if (old_command == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
 
-//                    char *old_command = malloc(sizeof(char) * (strlen(executable) + 1));
-//                    if (old_command == NULL) {
-//                        perror("out of memory");
-//                        exit(EXIT_FAILURE);
-//                    }
-//
-//                    strcpy(old_command, executable);
-//                    executable = realloc(executable, sizeof(char) * (strlen(executable) + strlen("/bin/") + 1));
-//                    if (command == NULL) {
-//                        perror("out of memory");
-//                        exit(EXIT_FAILURE);
-//                    }
-//                    command[0] = executable;
-//
-//                    strcpy(executable, arg);
-//                    strcat(executable, "/");
-//                    strcat(executable, old_command);
-//                    free(old_command);
-//                    old_command = NULL;
+                    strcpy(old_command, executable);
+                    executable = realloc(executable, sizeof(char) * (strlen(executable) + strlen("/bin/") + 1));
+                    if (command == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    command[0] = executable;
+
+                    strcpy(executable, arg);
+                    strcat(executable, "/");
+                    strcat(executable, old_command);
+                    free(old_command);
+                    old_command = NULL;
 
                     closedir(d);
 
@@ -409,10 +397,9 @@ int checkpath(char **command) {
             }
             closedir(d);
         }
-        if (pathfound) {
-            arg = strtok(NULL, ":");
-        }
+        arg = strtok(NULL, ":");
     }
+
     return 0;
 }
 
