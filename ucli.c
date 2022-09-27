@@ -13,8 +13,8 @@
 #include <sys/wait.h>
 #include "ucli.h"
 
+// Getting current working dir
 int getdir(char *cwd) {
-    // Getting current working dir
     if (getcwd(cwd, PATH_MAX + 1) == NULL) {
         strcpy(cwd, "NULL");
         return -1;
@@ -22,6 +22,8 @@ int getdir(char *cwd) {
     return 1;
 }
 
+// Reads input from STDIN, while keeping a buffer, in order to
+// read "unlimited" input
 int readinput(char **bufferptr, int newlinestop) {
     char *buffer = *bufferptr;
     // We tried using getline(), but it wasn't in MingW, and stumbled upon this implementation that
@@ -55,6 +57,8 @@ int readinput(char **bufferptr, int newlinestop) {
     return 1;
 }
 
+// Parse the input from the buffer into commands
+// This means parsing arguments and pipes, and checking if a command is in /bin
 int parseinput(char *buffer, char ****commandsptr) {
     char ***commands = *commandsptr;
 
@@ -207,7 +211,7 @@ int parseinput(char *buffer, char ****commandsptr) {
     return 1;
 }
 
-// yes, good, kill that child :)
+// Function to run the command on the child, and to change the output to the STDOUT
 int executechild(char **command, int pipefd[2]) {
     // set stdout to pipe output (credit to https://stackoverflow.com/a/7292659)
     if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
@@ -224,13 +228,18 @@ int executechild(char **command, int pipefd[2]) {
     // call correct binary
     execvp(command[0], command);
     perror("Child Error");
-    exit(EXIT_FAILURE); // not reached
+    exit(EXIT_FAILURE); // should not be reached
 }
 
+// Execute all the commands, recursively.
 int executecommands(char ***commands, int i) {
+    // we take out the i'th command from the list
     char **command = commands[i];
+    // if there is a command, execute it (is false at end of list)
     if (command != NULL) {
         // if we want to change working directory
+        // note: these commands were moved out of this function too, due to a "feature" we experienced on Linux
+        // where we needed to put this whole function in a fork, otherwise we couldn't recover the STDIN
         if (strcmp("cd", command[0]) == 0) {
             // TODO: path support path with spaces (only arg1 is passed rn)
             if (chdir(command[1]) != 0) {
@@ -240,7 +249,7 @@ int executecommands(char ***commands, int i) {
         else if (strcmp("exit", command[0]) == 0) {
             return 2;
         } else {
-            // piping <insert manpage>
+            // piping: https://man7.org/linux/man-pages/man7/pipe.7.html
             int pipefd[2];
             if (pipe(pipefd) == -1) {
                 perror("pipe");
@@ -261,10 +270,10 @@ int executecommands(char ***commands, int i) {
             else {
 //                while (getchar() != EOF); // flush stdin
                 // credit to https://stackoverflow.com/questions/7369286/c-passing-a-pipe-thru-execve for understanding of pipes
-                dup2(pipefd[0], STDIN_FILENO);
+                dup2(pipefd[0], STDIN_FILENO); // get output from child to stdin
                 close(pipefd[0]); // close input pipe
                 close(pipefd[1]); // close output pipe
-                return executecommands(commands, i + 1);
+                return executecommands(commands, i + 1); // execute the next command
             }
         }
     } // get input from last child after waiting command
@@ -298,7 +307,7 @@ int executecommands(char ***commands, int i) {
         }
         bufferptr[0] = buffer;
 
-        // Read input from console
+        // Read output from last child
         if (!readinput(bufferptr, 0)) {
             // if we could not read, and not caused by memory error, try again
 //                while (getchar() != EOF);
@@ -312,7 +321,7 @@ int executecommands(char ***commands, int i) {
         free(bufferptr);
         bufferptr = NULL;
 
-        printf("%s\n", buffer);
+        printf("%s\n", buffer); // print output
 
         free(buffer);
         buffer = NULL;
@@ -362,7 +371,9 @@ int bincommand(char **command) {
     return 0;
 }
 
+// Main function
 int main() {
+    // Keep going until exit command is entered, or an exception occurs
     while (true) {
         fflush(stdout); // Flush if something is stuck :)
 
@@ -372,9 +383,9 @@ int main() {
             perror("out of memory");
             exit(EXIT_FAILURE);
         }
-        getdir(cwd);
+        getdir(cwd);  // get current working directory
 
-        // Reading command-line input
+        // ================ Reading command-line input ================ //
         printf("%s > ", cwd);
         fflush(stdout);
         free(cwd);
@@ -402,6 +413,8 @@ int main() {
         buffer = *bufferptr;
         free(bufferptr);
         bufferptr = NULL;
+
+        // ================ Parsing input ================ //
 
         // Check that input exists and is above 1 (end of string char takes up 1 char)
         if (strlen(buffer) > 1) {
@@ -449,7 +462,8 @@ int main() {
             free(buffer);
             buffer = NULL;
 
-            // Command execution
+            // ================ Command execution ================//
+
             // if we want to change working directory
             if (strcmp("cd", commands[0][0]) == 0 || strcmp("/bin/cd", commands[0][0]) == 0) {
                 // TODO: path support path with spaces (only arg1 is passed rn)
@@ -459,8 +473,7 @@ int main() {
             } // if we want to exit the shell
             else if (strcmp("exit", commands[0][0]) == 0 || strcmp("/bin/exit", commands[0][0]) == 0) {
                 exit(EXIT_SUCCESS);
-            }
-            else {
+            } else {
                 // Forking https://man7.org/linux/man-pages/man2/wait.2.html
                 // we fork because on Linux it didn't want to open STDIN after we changed it, so let's leave it unchanged...
                 pid_t cpid, w;
@@ -499,7 +512,7 @@ int main() {
                 commands[i] = NULL;
                 cur_command = commands[++i];
             }
-            // already freed, basically
+
             free(commands);
             commands = NULL;
             free(commandsptr);
