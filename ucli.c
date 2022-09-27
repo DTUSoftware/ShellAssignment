@@ -178,16 +178,19 @@ int parseinput(char *buffer, char ****commandsptr) {
     commandsptr[0] = commands;
 
     // Check if commands are in /bin, and change path
+    // TODO: find out why getenv("PATH") causes execvp to not be able to use path
     i = 0;
     char **cur_command = commands[i];
-    while (cur_command != NULL) {
-        if (bincommand(cur_command)) {
-            if (DEBUG) {
-                printf("[DEBUG]: %s found in /bin!\n", cur_command[0]);
-            }
-        }
-        cur_command = commands[++i];
-    }
+    // Commented out due to execvp not working when getenv() is used.
+    // Check checkpath() for code showing path tokenization and directory crawling
+//    while (cur_command != NULL) {
+//        if (!checkpath(cur_command)) {
+//            if (DEBUG) {
+//                printf("[DEBUG]: Did not find %s in PATH!\n", cur_command[0]);
+//            }
+//        }
+//        cur_command = commands[++i];
+//    }
 
     // debug printing
     if (DEBUG) {
@@ -225,7 +228,7 @@ int executechild(char **command, int pipefd[2]) {
     close(pipefd[0]); // close input pipe
     close(pipefd[1]); // close output pipe
 
-    // call correct binary
+    // call correct binary - https://linux.die.net/man/3/execv & https://stackoverflow.com/a/5769803
     execvp(command[0], command);
     perror("Child Error");
     exit(EXIT_FAILURE); // should not be reached
@@ -331,43 +334,72 @@ int executecommands(char ***commands, int i) {
 }
 
 // Checks whether a command is in /bin or not - and if in bin, change command to fit to path
-int bincommand(char **command) {
-    char *executable = command[0];
+int checkpath(char **command) {
+    char *executable = command[0]; // the executable/binary is the first varible
+
+    char* path = getenv("PATH"); // load path
+    if (path == NULL) {
+        if (DEBUG) {
+            printf("[DEBUG]: Could not read path...\n");
+        }
+        return -1;
+    }
+    else if (DEBUG) {
+        printf("[DEBUG]: Path: %s\n", path);
+    }
+
     // read list of binaries to find command
     // https://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
     DIR *d;
     struct dirent *dir;
-    d = opendir("/bin");
-    if (d) {
-        while ((dir = readdir(d)) != NULL) {
-            // TODO: replace with startswith
-//            printf("%d\n", strcmp(dir->d_name, command));
-            if (strstr(dir->d_name, executable) != NULL) {
-                char *old_command = malloc(sizeof(char) * (strlen(executable) + 1));
-                if (old_command == NULL) {
-                    perror("out of memory");
-                    exit(EXIT_FAILURE);
-                }
 
-                strcpy(old_command, executable);
-                executable = realloc(executable, sizeof(char) * (strlen(executable) + strlen("/bin/") + 1));
-                if (command == NULL) {
-                    perror("out of memory");
-                    exit(EXIT_FAILURE);
-                }
-                command[0] = executable;
-
-                strcpy(executable, "/bin/");
-                strcat(executable, old_command);
-                free(old_command);
-                old_command = NULL;
-                closedir(d);
-                return 1;
-            }
-//            printf("[DEBUG]: %s\n", dir->d_name);
+    char *arg = strtok(path, ":");
+    while (arg != NULL) {
+        if (DEBUG) {
+            printf("[DEBUG]: Checking %s\n", arg);
         }
-        closedir(d);
+        d = opendir(arg);
+        if (d) {
+            while ((dir = readdir(d)) != NULL) {
+                // TODO: replace with startswith
+                //            printf("%d\n", strcmp(dir->d_name, command));
+                if (strstr(dir->d_name, executable) != NULL) {
+                    if (DEBUG) {
+                        printf("[DEBUG]: %s found in %s!\n", executable, arg);
+                    }
+
+                    // Not needed with execvp(), since it gets the path anyway
+                    char *old_command = malloc(sizeof(char) * (strlen(executable) + 1));
+                    if (old_command == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    strcpy(old_command, executable);
+                    executable = realloc(executable, sizeof(char) * (strlen(executable) + strlen("/bin/") + 1));
+                    if (command == NULL) {
+                        perror("out of memory");
+                        exit(EXIT_FAILURE);
+                    }
+                    command[0] = executable;
+
+                    strcpy(executable, arg);
+                    strcat(executable, "/");
+                    strcat(executable, old_command);
+                    free(old_command);
+                    old_command = NULL;
+
+                    closedir(d);
+
+                    return 1;
+                }
+                //            printf("[DEBUG]: %s\n", dir->d_name);
+            }
+            closedir(d);
+        }
+        arg = strtok(NULL, ":");
     }
+
     return 0;
 }
 
@@ -386,6 +418,7 @@ int main() {
         getdir(cwd);  // get current working directory
 
         // ================ Reading command-line input ================ //
+
         printf("%s > ", cwd);
         fflush(stdout);
         free(cwd);
