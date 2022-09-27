@@ -45,7 +45,7 @@ The program environment is the required enviroment needed for the program to be 
 /usr/bin/vendor_perl:
 /usr/bin/core_perl
 ```
-btw `execl` takes directly from path so the tokenization of path in our program is unnessesary, but done as proof of how it can be done.w
+btw `execvp` takes directly from path so the tokenization of path in our program is unnessesary, but done as proof of how it can be done.w
 
 ### Background Process
 A background process is a process that runs in the background, without the user handling it, it could for example be system monitoring. When a process is running as a background process 
