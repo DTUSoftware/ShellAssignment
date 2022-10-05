@@ -49,3 +49,9 @@ btw `execvp` takes directly from path so the tokenization of path in our program
 
 ### Background Process
 A background process is a process that runs in the background, without the user handling it, it could for example be system monitoring. When a process is running as a background process 
+
+## Changes after Peer Review Submission
+
+We fixed a memory allocation error, which caused the program to crash right after doing more than 2 pipes.
+The pipe operation works and you get the output, but then it crashed after trying to free the commands.
+Commit where the change was made: https://github.com/DTUSoftware/ShellAssignment/commit/e2fa74781947681d953ae83230ca0c6865ba4a68#diff-fa7930d6deea105efba77f273caf1faecf5c663b68148781f11c87d40005a78aR101
