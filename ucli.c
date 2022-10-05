@@ -98,7 +98,7 @@ int parseinput(char *buffer, char ****commandsptr) {
                 i = -1;
                 j++;
                 // expand commands array
-                commands = realloc(commands, j + 2 * sizeof(char *)); // array of commands, ptr's to command
+                commands = realloc(commands, (j + 2) * sizeof(char *)); // array of commands, ptr's to command
                 if (commands == NULL) {
                     perror("out of memory");
                     exit(EXIT_FAILURE);
@@ -236,10 +236,10 @@ int executechild(char **command, int pipefd[2]) {
 
 // Execute all the commands, recursively.
 int executecommands(char ***commands, int i) {
-    // we take out the i'th command from the list
-    char **command = commands[i];
     // if there is a command, execute it (is false at end of list)
-    if (command != NULL) {
+    if (commands[i] != NULL) {
+        // we take out the i'th command from the list
+        char **command = commands[i];
         // if we want to change working directory
         // note: these commands were moved out of this function too, due to a "feature" we experienced on Linux
         // where we needed to put this whole function in a fork, otherwise we couldn't recover the STDIN
@@ -468,24 +468,9 @@ int main() {
 
             if (!parseinput(buffer, commandsptr)) {
                 // if parsing fails, try again
-                free(buffer);
+                freeeverything(commands, commandsptr, buffer, bufferptr);
                 buffer = NULL;
-                // free parsed commands
-                int i = 0;
-                char **cur_command = commands[i];
-                while (cur_command != NULL) {
-                    int j = 0;
-                    char *cur_arg = cur_command[j];
-                    while (cur_arg != NULL) {
-                        free(cur_arg);
-                        cur_arg = cur_command[++j];
-                    }
-                    free(cur_command);
-                    cur_command = commands[++i];
-                }
-                free(commands);
                 commands = NULL;
-                free(commandsptr);
                 commandsptr = NULL;
                 continue;
             }
@@ -505,6 +490,7 @@ int main() {
                 }
             } // if we want to exit the shell
             else if (strcmp("exit", commands[0][0]) == 0 || strcmp("/bin/exit", commands[0][0]) == 0) {
+                freeeverything(commands, commandsptr, buffer, bufferptr);
                 exit(EXIT_SUCCESS);
             } else {
                 // Forking https://man7.org/linux/man-pages/man2/wait.2.html
@@ -515,16 +501,19 @@ int main() {
                 cpid = fork();
                 if (cpid == -1) {
                     perror("fork");
+                    freeeverything(commands, commandsptr, buffer, bufferptr);
                     exit(EXIT_FAILURE);
                 }
                 if (cpid == 0) { // child
                     executecommands(commands, 0);
+                    freeeverything(commands, commandsptr, buffer, bufferptr);
                     exit(EXIT_SUCCESS);
                 } else { // child
                     do {
                         w = waitpid(cpid, &wstatus, WUNTRACED | WCONTINUED);
                         if (w == -1) {
                             perror("waitpid");
+                            freeeverything(commands, commandsptr, buffer, bufferptr);
                             exit(EXIT_FAILURE);
                         }
                     } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
@@ -532,28 +521,47 @@ int main() {
             }
 
             // free commands and args
-            int i = 0;
-            char **cur_command = commands[i];
-            while (cur_command != NULL) {
-                int j = 0;
-                char *cur_arg = cur_command[j];
-                while (cur_arg != NULL) {
-                    free(cur_arg);
-                    cur_arg = cur_command[++j];
-                }
-                free(cur_command);
-                commands[i] = NULL;
-                cur_command = commands[++i];
-            }
-
-            free(commands);
+            freeeverything(commands, commandsptr, buffer, bufferptr);
             commands = NULL;
-            free(commandsptr);
             commandsptr = NULL;
         } else {
-            free(buffer);
+            freeeverything(NULL, NULL, buffer, bufferptr);
             buffer = NULL;
+            bufferptr = NULL;
         }
     }
     exit(EXIT_SUCCESS);
+}
+
+int freeeverything(char ***commands, char ****commandsptr, char *buffer, char **bufferptr) {
+    if (buffer != NULL) {
+        free(buffer);
+        buffer = NULL;
+    }
+    if (bufferptr != NULL) {
+        free(bufferptr);
+        bufferptr = NULL;
+    }
+    // free parsed commands
+    if (commands != NULL) {
+        int i = 0;
+        char **cur_command = commands[i];
+        while (cur_command != NULL) {
+            int j = 0;
+            char *cur_arg = cur_command[j];
+            while (cur_arg != NULL) {
+                free(cur_arg);
+                cur_arg = cur_command[++j];
+            }
+            free(cur_command);
+            cur_command = commands[++i];
+        }
+        free(commands);
+        commands = NULL;
+    }
+    if (commandsptr != NULL) {
+        free(commandsptr);
+        commandsptr = NULL;
+    }
+    return 1;
 }

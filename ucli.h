@@ -14,5 +14,6 @@ int parseinput(char *buffer, char ****commandsptr);
 int executecommands(char ***commands, int i);
 int executechild(char **command, int pipefd[2]);
 int checkpath(char **command);
+int freeeverything(char ***commands, char ****commandsptr, char *buffer, char **bufferptr);
 
 #endif //SHELL_UCLI_H
